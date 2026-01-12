@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Espace Mairie - Support Info</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <header class="admin-header" style="background-color: #3498db;">
+        <div class="logo">MAIRIE - SERVICE INFORMATIQUE</div>
+        <div class="user-info">
+            <span>Bienvenue, <strong>{{ current_user.prenom }}</strong> ({{ current_user.service }})</span>
+            <a href="{{ url_for('logout') }}" class="btn-logout" style="margin-left: 20px;">Déconnexion</a>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h2>Mes Demandes d'Intervention</h2>
+            <a href="{{ url_for('nouveau_ticket') }}" class="btn-action" style="background-color: #27ae60; padding: 12px 20px; font-size: 16px;">
+                + Signaler un problème
+            </a>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="badge connexion" style="margin-bottom: 20px; display: block; text-align: center;">
+                {{ messages[0] }}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Sujet</th>
+                    <th>Description</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                <tr>
+                    <td>{{ ticket['date_creation'] }}</td>
+                    <td>
+                        <span class="badge {{ ticket['type_prestation'] }}">
+                            {{ ticket['type_prestation'] }}
+                        </span>
+                    </td>
+                    <td><strong>{{ ticket['titre'] }}</strong></td>
+                    <td style="max-width: 300px; color: #666; font-size: 0.9em;">
+                        {{ ticket['description'] }}
+                    </td>
+                    <td>
+                        <span class="status-{{ ticket['statut'].lower().replace(' ', '') }}">
+                            ● {{ ticket['statut'] }}
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 50px; color: #999;">
+                        Vous n'avez soumis aucun ticket pour le moment.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</body>
+</html>

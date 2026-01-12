@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Connexion - Mairie</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="login-box">
+        <h2>Connexion Portail Informatique</h2>
+        
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="error-msg">{{ messages[0] }}</div>
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <input type="email" name="email" placeholder="Email" required>
+            <input type="password" name="mdp" placeholder="Mot de passe" required>
+            <button type="submit">Se connecter</button>
+        </form>
+    </div>
+</body>
+</html>

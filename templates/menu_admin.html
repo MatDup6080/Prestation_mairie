@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Principal - Administration</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="menu-body">
+
+    <header class="admin-header">
+        <div class="logo">PORTAIL PRESTATAIRE</div>
+        <div class="user-info">
+            <span>{{ current_user.prenom }} {{ current_user.nom }} (Admin)</span>
+            <a href="{{ url_for('logout') }}" class="btn-logout" style="margin-left: 20px;">Déconnexion</a>
+        </div>
+    </header>
+
+    <div class="menu-container">
+        <h1>Gestion Informatique</h1>
+        <p>Sélectionnez le module de gestion souhaité</p>
+
+        <div class="choice-cards">
+            <a href="{{ url_for('inventaire_admin') }}" class="card">
+                <div class="icon">📦</div>
+                <h3>Inventaire</h3>
+                <p>Gestion du parc informatique : PC, serveurs, écrans et périphériques de la mairie.</p>
+            </a>
+
+            <a href="{{ url_for('prestations_admin') }}" class="card">
+                <div class="icon">🛠️</div>
+                <h3>Prestations</h3>
+                <p>Suivi et résolution des tickets d'assistance (Connexion, Matériel, Logiciel, Sécurité).</p>
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>

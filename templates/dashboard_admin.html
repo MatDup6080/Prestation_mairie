@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gestion des Interventions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="logo">GESTION TICKET</div>
+        <div class="user-info">
+            <span>{{ current_user.prenom }} {{ current_user.nom }} (Admin)</span>
+	   <a href="{{ url_for('menu_admin') }}" class="btn-logout">Retour Menu</a>
+            <a href="{{ url_for('logout') }}" class="btn-logout" style="margin-left: 15px;">Déconnexion</a>
+        </div>
+    </header>
+
+    <div style="padding: 30px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Sujet</th>
+                    <th>Demandeur</th>
+                    <th>Assigner à</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                <tr class="cat-{{ ticket.type_prestation }}">
+                    <td>{{ ticket.date_formatee }}</td>
+                    <td>
+                        <strong>{{ ticket.titre }}</strong><br>
+                        <small style="color: #666;">Type: {{ ticket.type_prestation }}</small>
+                    </td>
+                    <td>{{ ticket.demandeur }} ({{ ticket.service }})</td>
+                    
+                    <td>
+                        <form action="{{ url_for('assigner_ticket', ticket_id=ticket.id) }}" method="POST">
+                            <select name="technicien_id" onchange="this.form.submit()">
+                                <option value="">-- Choisir --</option>
+                                {% for tech in techniciens %}
+                                <option value="{{ tech.id }}" {% if ticket.technicien_id == tech.id %}selected{% endif %}>
+                                    {{ tech.prenom }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                    </td>
+
+                    <td>
+                        <form action="{{ url_for('update_statut', ticket_id=ticket.id) }}" method="POST">
+                            <select name="statut" onchange="this.form.submit()" 
+                                    class="badge-statut statut-{{ ticket.statut | lower | replace(' ', '-') }}">
+                                <option value="Nouveau" {% if ticket.statut == 'Nouveau' %}selected{% endif %}>Nouveau</option>
+                                <option value="En cours" {% if ticket.statut == 'En cours' %}selected{% endif %}>En cours</option>
+                                <option value="Terminé" {% if ticket.statut == 'Terminé' %}selected{% endif %}>Terminé</option>
+                            </select>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
