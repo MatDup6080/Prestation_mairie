@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mes Interventions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="admin-header" style="background-color: #34495e;">
+        <div class="logo">TECHNICIEN : {{ current_user.prenom }}</div>
+        <a href="{{ url_for('logout') }}" class="btn-logout">Déconnexion</a>
+    </header>
+
+    <div style="padding: 30px;">
+        <h2>Mes tickets assignés</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Sujet</th>
+                    <th>Demandeur</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                <tr>
+                    <td>{{ ticket.date_formatee }}</td>
+                    <td>
+                        <strong>{{ ticket.titre }}</strong><br>
+                        <small>{{ ticket.description }}</small>
+                    </td>
+                    <td>{{ ticket.demandeur }} ({{ ticket.service }})</td>
+                    <td>
+                        <form action="{{ url_for('update_statut', ticket_id=ticket.id) }}" method="POST">
+                            <select name="statut" onchange="this.form.submit()" 
+                                    class="badge-statut statut-{{ ticket.statut | lower | replace(' ', '-') }}">
+                                <option value="En cours" {% if ticket.statut == 'En cours' %}selected{% endif %}>En cours</option>
+                                <option value="Terminé" {% if ticket.statut == 'Terminé' %}selected{% endif %}>Terminé</option>
+                            </select>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
