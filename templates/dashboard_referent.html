@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Espace Référent - {{ current_user.nom }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="menu-body">
+    <header class="admin-header" style="background-color: #8e44ad;">
+        <div class="logo">GESTION RÉFÉRENT : {{ current_user.prenom }} {{ current_user.nom }}</div>
+        <a href="{{ url_for('logout') }}" class="btn-logout">Déconnexion</a>
+    </header>
+
+    <div style="display: flex; gap: 20px; padding: 20px; align-items: flex-start;">
+        
+        <div style="flex: 2; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Tickets de la Mairie</h2>
+                <a href="{{ url_for('nouveau_ticket') }}" class="btn-primary" style="text-decoration: none; padding: 10px 15px; background: #3498db; color: white; border-radius: 5px;">🎫 Créer un Ticket</a>
+            </div>
+            <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Sujet</th>
+                    <th>Description</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                <tr>
+                    <td>{{ ticket['date_creation'] }}</td>
+                    <td>
+                        <span class="badge {{ ticket['type_prestation'] }}">
+                            {{ ticket['type_prestation'] }}
+                        </span>
+                    </td>
+                    <td><strong>{{ ticket['titre'] }}</strong></td>
+                    <td style="max-width: 300px; color: #666; font-size: 0.9em;">
+                        {{ ticket['description'] }}
+                    </td>
+                    <td>
+                        <span class="status-{{ ticket['statut'].lower().replace(' ', '') }}">
+                            ● {{ ticket['statut'] }}
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 50px; color: #999;">
+                        Vous n'avez soumis aucun ticket pour le moment.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+
+        <div style="flex: 1; background: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h3 style="margin-top: 0;">+ Ajouter un Agent</h3>
+            <form action="{{ url_for('ajouter_personnel_referent') }}" method="POST">
+                <input type="text" name="prenom" placeholder="Prénom" required style="width: 95%; margin-bottom: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <input type="text" name="nom" placeholder="Nom" required style="width: 95%; margin-bottom: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <input type="email" name="email" placeholder="Email professionnel" required style="width: 95%; margin-bottom: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                
+                <select name="service" required style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="">-- Sélectionner un service --</option>
+                    <option value="Accueil">Accueil / État civil</option>
+                    <option value="Technique">Services Techniques</option>
+                    <option value="RH">Ressources Humaines</option>
+                    <option value="Comptabilité">Comptabilité / Finances</option>
+                    <option value="Scolaire">Service Scolaire</option>
+                </select>
+
+                <input type="password" name="mdp" placeholder="Mot de passe" required style="width: 95%; margin-bottom: 15px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <button type="submit" style="width: 100%; background: #27ae60; color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">Enregistrer l'agent</button>
+            </form>
+        </div>
+    </div>
+
+    <div style="padding: 0 20px 40px 20px;">
+        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2>Liste du Personnel Mairie</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f2f2f2; text-align: left;">
+                        <th style="padding: 12px;">Prénom</th>
+                        <th style="padding: 12px;">Nom</th>
+                        <th style="padding: 12px;">Email</th>
+                        <th style="padding: 12px;">Service</th>
+                        <th style="padding: 12px; text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for membre in membres %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px;">{{ membre.prenom }}</td>
+                        <td style="padding: 12px;">{{ membre.nom }}</td>
+                        <td style="padding: 12px;"><a href="mailto:{{ membre.email }}" style="color: #3498db;">{{ membre.email }}</a></td>
+                        <td style="padding: 12px;"><strong>{{ membre.service }}</strong></td>
+                        <td style="padding: 12px; text-align: center;">
+                            <form action="{{ url_for('supprimer_personnel', user_id=membre.id) }}" 
+                                  method="POST" 
+                                  onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer {{ membre.prenom }} {{ membre.nom }} ?');"
+                                  style="display: inline;">
+                                <button type="submit" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 1.2em;" title="Supprimer cet agent">
+                                    🗑️
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" style="padding: 30px; text-align: center; color: #888;">Aucun agent enregistré pour le moment.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

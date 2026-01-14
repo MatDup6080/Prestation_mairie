@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Créer Compte Référent</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="menu-body">
+    <header class="admin-header">
+        <div class="logo">CRÉATION RÉFÉRENT</div>
+    </header>
+
+    <div class="menu-container">
+        <h1>Créer le compte Référent</h1>
+        <p>Ce compte sera l'administrateur local de la mairie enregistrée.</p>
+
+        <form method="POST" class="form-container" style="max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 8px;">
+            <input type="text" name="prenom" placeholder="Prénom" required style="width: 100%; margin-bottom: 10px; padding: 8px;">
+            <input type="text" name="nom" placeholder="Nom de famille" required style="width: 100%; margin-bottom: 10px; padding: 8px;">
+            <input type="email" name="email" placeholder="Adresse Email" required style="width: 100%; margin-bottom: 10px; padding: 8px;">
+            <input type="password" name="mdp" placeholder="Mot de passe" required style="width: 100%; margin-bottom: 15px; padding: 8px;">
+            
+            <button type="submit" class="btn-primary" style="width: 100%;">Créer le compte</button>
+        </form>
+    </div>
+</body>
+</html>

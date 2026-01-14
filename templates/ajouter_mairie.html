@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Ajouter une Mairie - Administration</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="menu-body">
+
+    <header class="admin-header">
+        <div class="logo">ADMINISTRATION</div>
+        <a href="{{ url_for('menu_admin') }}" class="btn-logout">Retour Menu</a>
+    </header>
+
+    <div class="menu-container">
+        <h1>Ajouter une nouvelle Mairie</h1>
+        <p>Enregistrez une nouvelle entité cliente dans le système.</p>
+
+        <form method="POST" class="form-container" style="max-width: 500px; margin: 20px auto; background: white; padding: 20px; border-radius: 10px;">
+            <div style="margin-bottom: 15px;">
+                <label for="nom" style="display: block; margin-bottom: 5px;">Nom de la Mairie :</label>
+                <input type="text" id="nom" name="nom" placeholder="Ex: Mairie Centrale" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label for="ville" style="display: block; margin-bottom: 5px;">Ville :</label>
+                <input type="text" id="ville" name="ville" placeholder="Ex: Amiens" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+            </div>
+
+            <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                Enregistrer la Mairie
+            </button>
+        </form>
+    </div>
+<table border="1" style="width:100%; border-collapse: collapse; margin-top: 20px;">
+    <thead>
+        <tr style="background-color: #f2f2f2; text-align: left;">
+            <th style="padding: 10px;">Nom de la Mairie</th>
+            <th style="padding: 10px;">Ville</th>
+            <th style="padding: 10px; text-align: center;">Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in mairies %}
+        <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 10px;">{{ m.nom }}</td>
+            <td style="padding: 10px;">{{ m.ville }}</td>
+            <td style="padding: 10px; text-align: center;">
+                <form action="{{ url_for('supprimer_mairie', mairie_id=m.id) }}" 
+                      method="POST" 
+                      onsubmit="return confirm('Voulez-vous vraiment supprimer la mairie de {{ m.ville }} ? Cela ne fonctionnera que si aucun utilisateur n\'y est lié.');">
+                    <button type="submit" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 1.1em;">
+                        🗑️ Supprimer
+                    </button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="4" style="padding: 20px; text-align: center;">Aucune mairie enregistrée.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</body>
+</html>
