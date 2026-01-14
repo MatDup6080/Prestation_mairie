@@ -106,12 +106,16 @@
                                     <option value="">-- Tech --</option>
                                     {% for tech in techniciens %}
                                         {# Indicateur de couleur selon tech.charge #}
-                                        <option value="{{ tech.id }}" 
-                                            {% if tech.charge >= 5 %} style="color: #e74c3c; font-weight: bold;" 
-                                            {% elif tech.charge >= 3 %} style="color: #f39c12;" 
-                                            {% else %} style="color: #27ae60;" {% endif %}>
-                                            {{ tech.prenom }} {{ tech.nom }} ({{ tech.charge }})
-                                        </option>
+                                       <option value="{{ tech.id }}">
+            {# Choix de l'émoji selon la charge #}
+            {% if tech.charge >= 5 %}
+                🔴 {{ tech.prenom }} {{ tech.nom }} ({{ tech.charge }} actifs - Surchargé)
+            {% elif tech.charge >= 3 %}
+                🟠 {{ tech.prenom }} {{ tech.nom }} ({{ tech.charge }} actifs - Occupé)
+            {% else %}
+                🟢 {{ tech.prenom }} {{ tech.nom }} ({{ tech.charge }} actifs - Dispo)
+            {% endif %}
+        </option>
                                     {% endfor %}
                                 </select>
 
