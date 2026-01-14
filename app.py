@@ -82,23 +82,52 @@ def menu_admin():
 @login_required
 def prestations_admin():
     conn = get_db_connection()
+    # On ajoute "LEFT JOIN usager AS tech" pour récupérer les infos du technicien
     tickets = conn.execute('''
-        SELECT t.*, strftime('%d/%m/%Y', t.date_creation) as date_formatee, 
-        u.nom as demandeur, u.service FROM ticket t 
-        JOIN usager u ON t.createur_id = u.id ORDER BY t.date_creation DESC
+        SELECT t.*, 
+               strftime('%d/%m/%Y', t.date_creation) as date_formatee, 
+               u.nom as demandeur, 
+               u.service,
+               tech.prenom as tech_prenom,
+               tech.nom as tech_nom
+        FROM ticket t 
+        JOIN usager u ON t.createur_id = u.id 
+        LEFT JOIN usager tech ON t.technicien_id = tech.id
+        ORDER BY t.date_creation DESC
     ''').fetchall()
-    techniciens = conn.execute('SELECT id, prenom FROM usager WHERE role IS NULL').fetchall()
+    
+    # On s'assure de récupérer les techniciens pour le menu déroulant
+    # Note: J'ai changé 'IS NULL' par 'technicien' si vous utilisez des rôles
+    techniciens = conn.execute("SELECT id, prenom, nom FROM usager WHERE role = 'technicien' OR role IS NULL").fetchall()
     conn.close()
     return render_template('dashboard_admin.html', tickets=tickets, techniciens=techniciens)
-
 @app.route('/admin/assigner/<int:ticket_id>', methods=['POST'])
 @login_required
 def assigner_ticket(ticket_id):
     tech_id = request.form.get('technicien_id')
+    contrat = request.form.get('contrat')
+
+    # Dictionnaire de correspondance des durées
+    durées = {
+        'Gold': '4 heures',
+        'Silver': '24 heures',
+        'Bronze': '72 heures'
+    }
+    
+    # On récupère la durée correspondante (ou "Non définie" par sécurité)
+    duree_intervention = durées.get(contrat, 'Non définie')
+
     conn = get_db_connection()
-    conn.execute('UPDATE ticket SET technicien_id = ?, statut = "En cours" WHERE id = ?', (tech_id, ticket_id))
+    # On ajoute la durée dans la mise à jour (assurez-vous d'avoir la colonne 'duree' en BDD)
+    conn.execute('''
+        UPDATE ticket 
+        SET technicien_id = ?, contrat = ?, duree = ?, statut = "En cours" 
+        WHERE id = ?
+    ''', (tech_id, contrat, duree_intervention, ticket_id))
+    
     conn.commit()
     conn.close()
+    flash(f"Assigné en contrat {contrat} (Délai : {duree_intervention})")
     return redirect(url_for('prestations_admin'))
 
 @app.route('/admin/update_statut/<int:ticket_id>', methods=['POST'])
@@ -106,11 +135,22 @@ def assigner_ticket(ticket_id):
 def update_statut(ticket_id):
     nouveau_statut = request.form.get('statut')
     conn = get_db_connection()
-    conn.execute('UPDATE ticket SET statut = ? WHERE id = ?', (nouveau_statut, ticket_id))
-    conn.commit()
+    
+    # 1. On récupère le statut actuel du ticket
+    ticket = conn.execute('SELECT statut FROM ticket WHERE id = ?', (ticket_id,)).fetchone()
+    
+    if ticket:
+        # 2. Si le statut est déjà 'Terminé', on refuse la modification
+        if ticket['statut'] == 'Terminé':
+            flash("Erreur : Un ticket terminé ne peut plus être modifié.")
+        else:
+            conn.execute('UPDATE ticket SET statut = ? WHERE id = ?', (nouveau_statut, ticket_id))
+            conn.commit()
+            flash(f"Statut mis à jour : {nouveau_statut}")
+            
     conn.close()
     
-    if current_user.nom == 'Administrateur':
+    if current_user.role == 'admin_prestataire':
         return redirect(url_for('prestations_admin'))
     return redirect(url_for('dashboard_technicien'))
 

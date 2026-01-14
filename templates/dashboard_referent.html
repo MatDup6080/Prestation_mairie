@@ -4,6 +4,50 @@
     <meta charset="UTF-8">
     <title>Espace Référent - {{ current_user.nom }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Style pour la description tronquée */
+        .desc-tronquee {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        details summary {
+            cursor: pointer;
+            color: #3498db;
+            font-size: 0.85em;
+            font-weight: bold;
+            outline: none;
+            margin-top: 5px;
+        }
+
+        .full-desc {
+            padding: 10px;
+            background: #fdfdfd;
+            border-left: 3px solid #8e44ad; /* Couleur violette du référent */
+            margin-top: 5px;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            color: #333;
+        }
+
+        /* Badge contrat pour le référent */
+        .badge-contrat {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+        .gold { background-color: #f1c40f; color: #000; }
+        .silver { background-color: #bdc3c7; color: #000; }
+        .bronze { background-color: #cd7f32; color: #fff; }
+    </style>
 </head>
 <body class="menu-body">
     <header class="admin-header" style="background-color: #8e44ad;">
@@ -22,9 +66,7 @@
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>Type</th>
-                    <th>Sujet</th>
-                    <th>Description</th>
+                    <th>Engagement</th> <th>Sujet & Description</th>
                     <th>Statut</th>
                 </tr>
             </thead>
@@ -32,15 +74,33 @@
                 {% for ticket in tickets %}
                 <tr>
                     <td>{{ ticket['date_creation'] }}</td>
+                    
                     <td>
-                        <span class="badge {{ ticket['type_prestation'] }}">
+                        {% if ticket['contrat'] %}
+                            <div class="badge-contrat {{ ticket['contrat'].lower() }}">
+                                {{ ticket['contrat'] }}<br>
+                                <small style="font-weight: normal;">({{ ticket['duree'] }})</small>
+                            </div>
+                        {% else %}
+                            <em style="color: #999; font-size: 0.8em;">En attente<br>de validation</em>
+                        {% endif %}
+                    </td>
+
+                    <td style="max-width: 300px;">
+                        <span class="badge {{ ticket['type_prestation'] }}" style="font-size: 0.75em;">
                             {{ ticket['type_prestation'] }}
-                        </span>
+                        </span><br>
+                        <strong>{{ ticket['titre'] }}</strong>
+                        
+                        <div class="desc-tronquee">{{ ticket['description'] }}</div>
+                        <details>
+                            <summary>Détails complets</summary>
+                            <div class="full-desc">
+                                {{ ticket['description'] }}
+                            </div>
+                        </details>
                     </td>
-                    <td><strong>{{ ticket['titre'] }}</strong></td>
-                    <td style="max-width: 300px; color: #666; font-size: 0.9em;">
-                        {{ ticket['description'] }}
-                    </td>
+
                     <td>
                         <span class="status-{{ ticket['statut'].lower().replace(' ', '') }}">
                             ● {{ ticket['statut'] }}
@@ -49,8 +109,8 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" style="text-align: center; padding: 50px; color: #999;">
-                        Vous n'avez soumis aucun ticket pour le moment.
+                    <td colspan="4" style="text-align: center; padding: 50px; color: #999;">
+                        Aucun ticket pour le moment.
                     </td>
                 </tr>
                 {% endfor %}
@@ -111,8 +171,6 @@
                             </form>
                         </td>
                     </tr>
-                    {% else %}
-                    <tr><td colspan="5" style="padding: 30px; text-align: center; color: #888;">Aucun agent enregistré pour le moment.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

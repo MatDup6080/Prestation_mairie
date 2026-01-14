@@ -3,13 +3,57 @@
 <head>
     <title>Gestion des Interventions</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Styles pour la description */
+        .desc-tronquee {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        details summary {
+            cursor: pointer;
+            color: #3498db;
+            font-size: 0.85em;
+            font-weight: bold;
+            outline: none;
+            margin-top: 5px;
+        }
+
+        .full-desc {
+            padding: 10px;
+            background: #fdfdfd;
+            border-left: 3px solid #3498db;
+            margin-top: 5px;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            color: #333;
+        }
+
+        /* Style pour le badge de confirmation */
+        .badge-assigne {
+            display: inline-block;
+            color: #27ae60;
+            font-weight: bold;
+            background: #eafaf1;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            border: 1px solid #27ae60;
+        }
+    </style>
 </head>
 <body>
     <header class="admin-header">
         <div class="logo">GESTION TICKET</div>
         <div class="user-info">
             <span>{{ current_user.prenom }} {{ current_user.nom }} (Admin)</span>
-	   <a href="{{ url_for('menu_admin') }}" class="btn-logout">Retour Menu</a>
+            <a href="{{ url_for('menu_admin') }}" class="btn-logout">Retour Menu</a>
             <a href="{{ url_for('logout') }}" class="btn-logout" style="margin-left: 15px;">Déconnexion</a>
         </div>
     </header>
@@ -19,9 +63,10 @@
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>Sujet</th>
+                    <th>Sujet & Description</th>
                     <th>Demandeur</th>
-                    <th>Assigner à</th>
+                    <th>Contrat & Durée</th> 
+                    <th>Assignation</th>
                     <th>Statut</th>
                 </tr>
             </thead>
@@ -29,34 +74,76 @@
                 {% for ticket in tickets %}
                 <tr class="cat-{{ ticket.type_prestation }}">
                     <td>{{ ticket.date_formatee }}</td>
-                    <td>
+                    
+                    <td style="max-width: 350px;">
                         <strong>{{ ticket.titre }}</strong><br>
-                        <small style="color: #666;">Type: {{ ticket.type_prestation }}</small>
+                        <div class="desc-tronquee">{{ ticket.description }}</div>
+                        <details>
+                            <summary>Lire la suite...</summary>
+                            <div class="full-desc">{{ ticket.description }}</div>
+                        </details>
+                        <small style="color: #999; display: block; margin-top: 8px;">
+                            Type: {{ ticket.type_prestation }}
+                        </small>
                     </td>
+
                     <td>{{ ticket.demandeur }} ({{ ticket.service }})</td>
                     
                     <td>
-                        <form action="{{ url_for('assigner_ticket', ticket_id=ticket.id) }}" method="POST">
-                            <select name="technicien_id" onchange="this.form.submit()">
-                                <option value="">-- Choisir --</option>
-                                {% for tech in techniciens %}
-                                <option value="{{ tech.id }}" {% if ticket.technicien_id == tech.id %}selected{% endif %}>
-                                    {{ tech.prenom }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </form>
+                        {% if ticket.contrat %}
+                            <span class="badge-contrat {{ ticket.contrat|lower }}" style="font-weight: bold; color: #2c3e50;">
+                                {{ ticket.contrat }} ({{ ticket.duree }})
+                            </span>
+                        {% else %}
+                            <em style="color: #999;">Non défini</em>
+                        {% endif %}
                     </td>
 
-                    <td>
-                        <form action="{{ url_for('update_statut', ticket_id=ticket.id) }}" method="POST">
-                            <select name="statut" onchange="this.form.submit()" 
-                                    class="badge-statut statut-{{ ticket.statut | lower | replace(' ', '-') }}">
-                                <option value="Nouveau" {% if ticket.statut == 'Nouveau' %}selected{% endif %}>Nouveau</option>
-                                <option value="En cours" {% if ticket.statut == 'En cours' %}selected{% endif %}>En cours</option>
-                                <option value="Terminé" {% if ticket.statut == 'Terminé' %}selected{% endif %}>Terminé</option>
-                            </select>
-                        </form>
+                   <td>
+    {# Si le ticket n'est pas assigné et pas terminé : on affiche le formulaire #}
+    {% if not ticket.contrat and not ticket.technicien_id and ticket.statut != 'Terminé' %}
+        <form action="{{ url_for('assigner_ticket', ticket_id=ticket.id) }}" method="POST" style="display: flex; gap: 5px;">
+            <select name="technicien_id" required style="padding: 3px;">
+                <option value="">-- Choisir Tech --</option>
+                {% for tech in techniciens %}
+                <option value="{{ tech.id }}">{{ tech.prenom }} {{ tech.nom }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="contrat" required style="padding: 3px;">
+                <option value="">-- Contrat --</option>
+                <option value="Gold">Gold (4h)</option>
+                <option value="Silver">Silver (24h)</option>
+                <option value="Bronze">Bronze (72h)</option>
+            </select>
+
+            <button type="submit" style="cursor:pointer; background:#3498db; color:white; border:none; border-radius:3px; padding: 5px 10px;">ok</button>
+        </form>
+
+    {# Si le ticket est assigné : on affiche le NOM et le PRÉNOM #}
+    {% elif ticket.technicien_id %}
+        <div style="color: #2c3e50; font-size: 0.9em;">
+            <span style="display:block; margin-bottom: 2px;">👨‍🔧 <strong>{{ ticket.tech_prenom }} {{ ticket.tech_nom }}</strong></span>
+            <small style="color: #27ae60; font-weight: bold;">Assignation validée</small>
+        </div>
+    {% else %}
+        <span style="color: #7f8c8d;">-</span>
+    {% endif %}
+</td>
+<td>
+                        {% if ticket.statut == 'Terminé' %}
+                            <span class="badge-termine" style="color: #27ae60; font-weight: bold;">
+                                ✅ Clos / Terminé
+                            </span>
+                        {% else %}
+                            <form action="{{ url_for('update_statut', ticket_id=ticket.id) }}" method="POST" style="display:inline;">
+                                <select name="statut" onchange="this.form.submit()">
+                                    <option value="Nouveau" {% if ticket.statut == 'Nouveau' %}selected{% endif %}>Nouveau</option>
+                                    <option value="En cours" {% if ticket.statut == 'En cours' %}selected{% endif %}>En cours</option>
+                                    <option value="Terminé">Terminé</option>
+                                </select>
+                            </form>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
