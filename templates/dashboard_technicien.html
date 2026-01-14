@@ -34,6 +34,16 @@
             white-space: pre-wrap;
             color: #333;
         }
+          .badge-contrat {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+        .gold { background-color: #f1c40f; color: #000; }
+        .silver { background-color: #bdc3c7; color: #000; }
+        .bronze { background-color: #cd7f32; color: #fff; }
     </style>
 </head>
 <body>
@@ -59,19 +69,36 @@
                 <tr class="priority-{{ ticket.contrat|lower }}">
                     <td>{{ ticket.date_formatee }}</td>
                     
-                    <td>
-                        {% if ticket.contrat %}
-                            <div style="padding: 5px; border-radius: 4px; text-align: center; font-weight: bold; 
-                                {% if ticket.contrat == 'Gold' %} background-color: #f1c40f; color: #000;
-                                {% elif ticket.contrat == 'Silver' %} background-color: #bdc3c7; color: #000;
-                                {% else %} background-color: #cd7f32; color: #fff; {% endif %}">
-                                {{ ticket.contrat }}<br>
-                                <small style="font-size: 0.8em;">({{ ticket.duree }})</small>
-                            </div>
-                        {% else %}
-                            <span style="color: gray;">Standard</span>
-                        {% endif %}
-                    </td>
+                      <td>
+    {% if ticket.contrat %}
+        <div style="line-height: 1.4;">
+            <span class="badge-contrat {{ ticket.contrat|lower }}">
+                {{ ticket.contrat }} ({{ ticket.duree }})
+            </span><br>
+
+            {# CALCUL DU RESPECT DU DÉLAI SI TERMINÉ #}
+            {% if ticket.statut == 'Terminé' and ticket.date_fin %}
+                {% set debut = ticket.date_creation | to_datetime %}
+                {% set fin = ticket.date_fin | to_datetime %}
+                {% set ecoule = (fin - debut).total_seconds() / 3600 %} {# Temps en heures #}
+                
+                {# Définition de la limite selon le contrat #}
+                {% set limite = 4 if ticket.contrat == 'Gold' else 24 if ticket.contrat == 'Silver' else 72 %}
+
+                {% if ecoule <= limite %}
+                    <small style="color: #27ae60;">✅ Respecté ({{ ecoule|round(1) }}h)</small>
+                {% else %}
+                    <small style="color: #e74c3c; font-weight: bold;">
+                        ❌ Retard : +{{ (ecoule - limite)|round(1) }}h
+                    </small>
+                {% endif %}
+            {% endif %}
+        </div>
+    {% else %}
+        <em style="color: #999;">Non défini</em>
+    {% endif %}
+</td>
+
 
                     <td style="max-width: 350px;">
                         <strong>{{ ticket.titre }}</strong>
