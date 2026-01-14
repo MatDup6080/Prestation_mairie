@@ -143,24 +143,24 @@ def update_statut(ticket_id):
     nouveau_statut = request.form.get('statut')
     conn = get_db_connection()
     
-    # 1. On récupère le statut actuel du ticket
-    ticket = conn.execute('SELECT statut FROM ticket WHERE id = ?', (ticket_id,)).fetchone()
+    if nouveau_statut == 'Terminé':
+        # CURRENT_TIMESTAMP enregistre la date et l'heure exactes
+        conn.execute('''
+            UPDATE ticket 
+            SET statut = ?, date_fin = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        ''', (nouveau_statut, ticket_id))
+    else:
+        # Si on repasse en 'En cours', on vide la date de fin
+        conn.execute('UPDATE ticket SET statut = ?, date_fin = NULL WHERE id = ?', 
+                    (nouveau_statut, ticket_id))
     
-    if ticket:
-        # 2. Si le statut est déjà 'Terminé', on refuse la modification
-        if ticket['statut'] == 'Terminé':
-            flash("Erreur : Un ticket terminé ne peut plus être modifié.")
-        else:
-            conn.execute('UPDATE ticket SET statut = ? WHERE id = ?', (nouveau_statut, ticket_id))
-            conn.commit()
-            flash(f"Statut mis à jour : {nouveau_statut}")
-            
+    conn.commit()
     conn.close()
     
-    if current_user.role == 'admin_prestataire':
-        return redirect(url_for('prestations_admin'))
-    return redirect(url_for('dashboard_technicien'))
-
+    flash(f"Statut mis à jour : {nouveau_statut}")
+    return redirect(url_for('prestations_admin'))
+    
 @app.route('/admin/inventaire')
 @login_required
 def inventaire_admin():
@@ -366,6 +366,17 @@ def nouveau_ticket():
         return redirect(url_for('espace_mairie'))
         
     return render_template('nouveau_ticket.html')
+
+from datetime import datetime
+
+@app.template_filter('to_datetime')
+def to_datetime_filter(s):
+    if not s: return None
+    try:
+        # SQLite stocke souvent sous ce format : 2023-10-27 14:30:00
+        return datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
+    except:
+        return None
 
 if __name__ == '__main__':
     app.run(debug=True)
