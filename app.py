@@ -98,7 +98,14 @@ def prestations_admin():
     
     # On s'assure de récupérer les techniciens pour le menu déroulant
     # Note: J'ai changé 'IS NULL' par 'technicien' si vous utilisez des rôles
-    techniciens = conn.execute("SELECT id, prenom, nom FROM usager WHERE role = 'technicien' OR role IS NULL").fetchall()
+    techniciens = conn.execute('''
+        SELECT u.id, u.prenom, u.nom,
+               (SELECT COUNT(t.id) FROM ticket t 
+                WHERE t.technicien_id = u.id 
+                AND t.statut != 'Terminé') as charge
+        FROM usager u 
+        WHERE u.role = 'technicien' OR u.role IS NULL
+    ''').fetchall()
     conn.close()
     return render_template('dashboard_admin.html', tickets=tickets, techniciens=techniciens)
 @app.route('/admin/assigner/<int:ticket_id>', methods=['POST'])
