@@ -64,6 +64,9 @@
             <span>{{ current_user.prenom }} {{ current_user.nom }} (Admin)</span>
             <a href="{{ url_for('menu_admin') }}" class="btn-logout">Retour Menu</a>
             <a href="{{ url_for('logout') }}" class="btn-logout" style="margin-left: 15px;">Déconnexion</a>
+            <a href="{{ url_for('generer_rapport_pdf') }}" class="btn-download" style="background: #e67e22; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold;">
+    📥 Télécharger le Rapport du Mois
+</a>
         </div>
     </header>
 

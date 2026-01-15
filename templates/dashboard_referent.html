@@ -5,7 +5,7 @@
     <title>Espace Référent - {{ current_user.nom }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        /* Style pour la description tronquée */
+        /* Styles pour la description et les badges */
         .desc-tronquee {
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -29,14 +29,13 @@
         .full-desc {
             padding: 10px;
             background: #fdfdfd;
-            border-left: 3px solid #8e44ad; /* Couleur violette du référent */
+            border-left: 3px solid #8e44ad;
             margin-top: 5px;
             font-size: 0.9em;
             white-space: pre-wrap;
             color: #333;
         }
 
-        /* Badge contrat pour le référent */
         .badge-contrat {
             display: inline-block;
             padding: 4px 8px;
@@ -47,6 +46,18 @@
         .gold { background-color: #f1c40f; color: #000; }
         .silver { background-color: #bdc3c7; color: #000; }
         .bronze { background-color: #cd7f32; color: #fff; }
+
+        /* Style pour les messages d'alerte (Flash) */
+        .flash-message {
+            padding: 15px;
+            margin: 20px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
     </style>
 </head>
 <body class="menu-body">
@@ -54,6 +65,14 @@
         <div class="logo">GESTION RÉFÉRENT : {{ current_user.prenom }} {{ current_user.nom }}</div>
         <a href="{{ url_for('logout') }}" class="btn-logout">Déconnexion</a>
     </header>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash-message">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
 
     <div style="display: flex; gap: 20px; padding: 20px; align-items: flex-start;">
         
@@ -63,78 +82,68 @@
                 <a href="{{ url_for('nouveau_ticket') }}" class="btn-primary" style="text-decoration: none; padding: 10px 15px; background: #3498db; color: white; border-radius: 5px;">🎫 Créer un Ticket</a>
             </div>
             <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Engagement</th> <th>Sujet & Description</th>
-                    <th>Statut</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for ticket in tickets %}
-                <tr>
-                    <td>{{ ticket['date_creation'] }}</td>
-                    
-                       <td>
-    {% if ticket.contrat %}
-        <div style="line-height: 1.4;">
-            <span class="badge-contrat {{ ticket.contrat|lower }}">
-                {{ ticket.contrat }} ({{ ticket.duree }})
-            </span><br>
-
-            {# CALCUL DU RESPECT DU DÉLAI SI TERMINÉ #}
-            {% if ticket.statut == 'Terminé' and ticket.date_fin %}
-                {% set debut = ticket.date_creation | to_datetime %}
-                {% set fin = ticket.date_fin | to_datetime %}
-                {% set ecoule = (fin - debut).total_seconds() / 3600 %} {# Temps en heures #}
-                
-                {# Définition de la limite selon le contrat #}
-                {% set limite = 4 if ticket.contrat == 'Gold' else 24 if ticket.contrat == 'Silver' else 72 %}
-
-                {% if ecoule <= limite %}
-                    <small style="color: #27ae60;">✅ Respecté ({{ ecoule|round(1) }}h)</small>
-                {% else %}
-                    <small style="color: #e74c3c; font-weight: bold;">
-                        ❌ Retard : +{{ (ecoule - limite)|round(1) }}h
-                    </small>
-                {% endif %}
-            {% endif %}
-        </div>
-    {% else %}
-        <em style="color: #999;">Non défini</em>
-    {% endif %}
-</td>
-
-                    <td style="max-width: 300px;">
-                        <span class="badge {{ ticket['type_prestation'] }}" style="font-size: 0.75em;">
-                            {{ ticket['type_prestation'] }}
-                        </span><br>
-                        <strong>{{ ticket['titre'] }}</strong>
-                        
-                        <div class="desc-tronquee">{{ ticket['description'] }}</div>
-                        <details>
-                            <summary>Détails complets</summary>
-                            <div class="full-desc">
-                                {{ ticket['description'] }}
-                            </div>
-                        </details>
-                    </td>
-
-                    <td>
-                        <span class="status-{{ ticket['statut'].lower().replace(' ', '') }}">
-                            ● {{ ticket['statut'] }}
-                        </span>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="4" style="text-align: center; padding: 50px; color: #999;">
-                        Aucun ticket pour le moment.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Engagement</th> 
+                        <th>Sujet & Description</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in tickets %}
+                    <tr>
+                        <td>{{ ticket['date_creation'] }}</td>
+                        <td>
+                            {% if ticket.contrat %}
+                                <div style="line-height: 1.4;">
+                                    <span class="badge-contrat {{ ticket.contrat|lower }}">
+                                        {{ ticket.contrat }} ({{ ticket.duree }})
+                                    </span><br>
+                                    {% if ticket.statut == 'Terminé' and ticket.date_fin %}
+                                        {% set debut = ticket.date_creation | to_datetime %}
+                                        {% set fin = ticket.date_fin | to_datetime %}
+                                        {% if debut and fin %}
+                                            {% set ecoule = (fin - debut).total_seconds() / 3600 %}
+                                            {% set limite = 4 if ticket.contrat == 'Gold' else 24 if ticket.contrat == 'Silver' else 72 %}
+                                            {% if ecoule <= limite %}
+                                                <small style="color: #27ae60;">✅ Respecté ({{ ecoule|round(1) }}h)</small>
+                                            {% else %}
+                                                <small style="color: #e74c3c; font-weight: bold;">
+                                                    ❌ Retard : +{{ (ecoule - limite)|round(1) }}h
+                                                </small>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <em style="color: #999;">Non défini</em>
+                            {% endif %}
+                        </td>
+                        <td style="max-width: 300px;">
+                            <span class="badge {{ ticket['type_prestation'] }}" style="font-size: 0.75em;">
+                                {{ ticket['type_prestation'] }}
+                            </span><br>
+                            <strong>{{ ticket['titre'] }}</strong>
+                            <div class="desc-tronquee">{{ ticket['description'] }}</div>
+                            <details>
+                                <summary>Détails complets</summary>
+                                <div class="full-desc">{{ ticket['description'] }}</div>
+                            </details>
+                        </td>
+                        <td>
+                            <span class="status-{{ ticket['statut'].lower().replace(' ', '') }}">
+                                ● {{ ticket['statut'] }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 50px; color: #999;">Aucun ticket pour le moment.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
 
         <div style="flex: 1; background: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
@@ -142,7 +151,11 @@
             <form action="{{ url_for('ajouter_personnel_referent') }}" method="POST">
                 <input type="text" name="prenom" placeholder="Prénom" required style="width: 95%; margin-bottom: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 <input type="text" name="nom" placeholder="Nom" required style="width: 95%; margin-bottom: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                <input type="email" name="email" placeholder="Email professionnel" required style="width: 95%; margin-bottom: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                
+                <input type="email" name="email" placeholder="prenom.nom@ville.fr" required 
+                       pattern="[a-zA-Z0-9.-]+\.(fr|gmail\.com)$"
+                       title="L'email doit se terminer par .fr ou gmail.com"
+                       style="width: 95%; margin-bottom: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 
                 <select name="service" required style="width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                     <option value="">-- Sélectionner un service --</option>
@@ -184,9 +197,7 @@
                                   method="POST" 
                                   onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer {{ membre.prenom }} {{ membre.nom }} ?');"
                                   style="display: inline;">
-                                <button type="submit" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 1.2em;" title="Supprimer cet agent">
-                                    🗑️
-                                </button>
+                                <button type="submit" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 1.2em;" title="Supprimer cet agent">🗑️</button>
                             </form>
                         </td>
                     </tr>

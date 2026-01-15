@@ -1,6 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import sqlite3
+import unicodedata
+import re
+import random
+import string
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'votre_cle_secrete'
@@ -8,15 +12,36 @@ app.config['SECRET_KEY'] = 'votre_cle_secrete'
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+def simplifier_chaine(texte):
+    """Supprime les accents, espaces et met en minuscule."""
+    if not texte: return ""
+    texte = unicodedata.normalize('NFD', texte)
+    texte = "".join([c for c in texte if unicodedata.category(c) != 'Mn']).lower()
+    return texte.replace(" ", "")
 
+def valider_format_strict_email(email, prenom, nom):
+    """Vérifie le format prenom.nom@... ou p.nom@... avec domaines .fr ou gmail.com"""
+    email = email.lower().strip()
+    p = simplifier_chaine(prenom)
+    n = simplifier_chaine(nom)
+    
+    format1 = f"{p}.{n}"          # prenom.nom
+    format2 = f"{p[0]}.{n}"       # p.nom
+    
+    # Regex : accepte gmail.com ou n'importe quel domaine finissant par .fr
+    suffixe_pattern = r"@(gmail\.com|[a-zA-Z0-9-]+\.fr)$"
+    pattern = f"^({re.escape(format1)}|{re.escape(format2)}){suffixe_pattern}"
+    
+    return re.match(pattern, email) is not None
 # --- Modèle Utilisateur ---
 class Usager(UserMixin):
-    def __init__(self, id, nom, prenom, role, mairie_id=None):
+     def __init__(self, id, nom, prenom, role, mairie_id=None, premier_login=1):
         self.id = id
         self.nom = nom
         self.prenom = prenom
         self.role = role
-        self.mairie_id = mairie_id 
+        self.mairie_id = mairie_id
+        self.premier_login = premier_login
 
 def get_db_connection():
     conn = sqlite3.connect('mairie.db')
@@ -29,7 +54,7 @@ def load_user(user_id):
     u = conn.execute('SELECT * FROM usager WHERE id = ?', (user_id,)).fetchone()
     conn.close()
     if u:
-        return Usager(u['id'], u['nom'], u['prenom'], u['role'], u['mairie_id'])
+        return Usager(u['id'], u['nom'], u['prenom'], u['role'], u['mairie_id'],u['premier_login'])
     return None
 
 # --- ROUTES DE CONNEXION ---
@@ -47,8 +72,13 @@ def login():
         
         if user_data:
             user = Usager(user_data['id'], user_data['nom'], user_data['prenom'], 
-                          user_data['role'], user_data['mairie_id'])
+                          user_data['role'], user_data['mairie_id'], user_data['premier_login'])
             login_user(user)
+
+            # --- LOGIQUE DE PREMIÈRE CONNEXION ---
+            if user.premier_login == 1:
+                flash("Ceci est votre première connexion. Veuillez sécuriser votre compte en changeant votre mot de passe.")
+                return redirect(url_for('modifier_mdp'))
 
             # --- LOGIQUE DE REDIRECTION (Bien indentée) ---
             if user.role == 'personnel_mairie':
@@ -82,6 +112,8 @@ def menu_admin():
 @login_required
 def prestations_admin():
     conn = get_db_connection()
+    conn.execute("DELETE FROM ticket WHERE statut = 'Terminé' AND date_fin < datetime('now', '-30 days')")
+    conn.commit()
     # On ajoute "LEFT JOIN usager AS tech" pour récupérer les infos du technicien
     tickets = conn.execute('''
         SELECT t.*, 
@@ -231,15 +263,24 @@ def ajouter_referent(mairie_id):
         email = request.form.get('email')
         mdp = request.form.get('mdp')
         
+        # Validation du format d'email
+        if not valider_format_strict_email(email, prenom, nom):
+            flash(f"Format d'email invalide. Utilisez {prenom.lower()}.{nom.lower()}@... (gmail.com ou .fr)")
+            return redirect(url_for('ajouter_referent', mairie_id=mairie_id))
+
         conn = get_db_connection()
-        conn.execute('''
-            INSERT INTO usager (nom, prenom, email, mdp, role, mairie_id) 
-            VALUES (?, ?, ?, ?, 'referent', ?)
-        ''', (nom, prenom, email, mdp, mairie_id))
-        conn.commit()
-        conn.close()
+        try:
+            conn.execute('''
+                INSERT INTO usager (nom, prenom, email, mdp, role, mairie_id) 
+                VALUES (?, ?, ?, ?, 'referent', ?)
+            ''', (nom, prenom, email, mdp, mairie_id))
+            conn.commit()
+            flash("Compte référent créé avec succès.")
+        except sqlite3.IntegrityError:
+            flash("Erreur : Cette adresse email est déjà utilisée.")
+        finally:
+            conn.close()
         
-        flash("Compte référent créé avec succès.")
         return redirect(url_for('menu_admin'))
         
     return render_template('ajouter_referent.html', mairie_id=mairie_id)
@@ -282,15 +323,24 @@ def ajouter_personnel_referent():
     mdp = request.form.get('mdp')
     service = request.form.get('service')
 
+    # Validation du format d'email
+    if not valider_format_strict_email(email, prenom, nom):
+        flash("L'email doit correspondre au nom/prénom et finir par gmail.com ou .fr")
+        return redirect(url_for('dashboard_referent'))
+
     conn = get_db_connection()
-    conn.execute('''
-       INSERT INTO usager (nom, prenom, email, mdp, role, mairie_id, service) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (nom, prenom, email, mdp, 'personnel_mairie', current_user.mairie_id, service))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute('''
+           INSERT INTO usager (nom, prenom, email, mdp, role, mairie_id, service) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (nom, prenom, email, mdp, 'personnel_mairie', current_user.mairie_id, service))
+        conn.commit()
+        flash("Nouveau personnel mairie ajouté.")
+    except sqlite3.IntegrityError:
+        flash("Erreur : Cet email existe déjà.")
+    finally:
+        conn.close()
     
-    flash("Nouveau personnel mairie ajouté.")
     return redirect(url_for('dashboard_referent'))
 
 @app.route('/referent/supprimer-personnel/<int:user_id>', methods=['POST'])
@@ -377,6 +427,176 @@ def to_datetime_filter(s):
         return datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
     except:
         return None
+        
+from flask import send_file
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+import io
+
+@app.route('/admin/rapport-mensuel')
+@login_required
+def generer_rapport_pdf():
+    conn = get_db_connection()
+    # On récupère tous les tickets du mois actuel
+    tickets = conn.execute('''
+        SELECT t.*, u.nom as demandeur, tech.prenom as tech_prenom 
+        FROM ticket t
+        JOIN usager u ON t.createur_id = u.id
+        LEFT JOIN usager tech ON t.technicien_id = tech.id
+        WHERE strftime('%m', t.date_creation) = strftime('%m', 'now')
+    ''').fetchall()
+    conn.close()
+
+    # Création du buffer pour le PDF
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Titre du document
+    elements.append(Paragraph("Rapport Mensuel des Interventions", styles['Title']))
+    elements.append(Spacer(1, 12))
+
+    # Préparation des données du tableau
+    data = [['Date', 'Sujet', 'Tech', 'Contrat', 'Statut', 'SLA']]
+    
+    for t in tickets:
+        # Calcul rapide du SLA (Respect du délai)
+        sla_status = "N/A"
+        if t['statut'] == 'Terminé' and t['date_fin']:
+            debut = datetime.strptime(t['date_creation'], '%Y-%m-%d %H:%M:%S')
+            fin = datetime.strptime(t['date_fin'], '%Y-%m-%d %H:%M:%S')
+            ecoule = (fin - debut).total_seconds() / 3600
+            limite = 4 if t['contrat'] == 'Gold' else 24 if t['contrat'] == 'Silver' else 72
+            sla_status = "OK" if ecoule <= limite else f"RETARD (+{int(ecoule-limite)}h)"
+
+        data.append([
+            t['date_creation'][:10], 
+            t['titre'][:20], 
+            t['tech_prenom'] if t['tech_prenom'] else "-", 
+            t['contrat'] if t['contrat'] else "-",
+            t['statut'],
+            sla_status
+        ])
+
+    # Style du tableau
+    table = Table(data, colWidths=[60, 130, 80, 70, 70, 80])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey])
+    ]))
+    
+    elements.append(table)
+    doc.build(elements)
+    
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name="rapport_mensuel.pdf", mimetype='application/pdf')
+
+
+def valider_securite_mdp(mdp):
+    """
+    Vérifie la force du mot de passe :
+    - 8 caractères minimum
+    - Au moins une majuscule
+    - Au moins une minuscule
+    - Au moins un chiffre
+    - Au moins un caractère spécial (@$!%*?&)
+    """
+    pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
+    return re.match(pattern, mdp) is not None
+
+@app.route('/profil/modifier-mdp', methods=['GET', 'POST'])
+@login_required
+def modifier_mdp():
+    if request.method == 'POST':
+        nouveau_mdp = request.form.get('nouveau_mdp')
+        confirmation = request.form.get('confirmation_mdp')
+
+        if nouveau_mdp != confirmation:
+            flash("❌ Les mots de passe ne correspondent pas.")
+            return redirect(url_for('modifier_mdp'))
+
+        if not valider_securite_mdp(nouveau_mdp):
+            flash("❌ Le mot de passe n'est pas assez sécurisé.")
+            return redirect(url_for('modifier_mdp'))
+
+        conn = get_db_connection()
+        # CETTE LIGNE EST CRUCIALE : on change le MDP ET on passe premier_login à 0
+        conn.execute('''
+            UPDATE usager 
+            SET mdp = ?, premier_login = 0 
+            WHERE id = ?
+        ''', (nouveau_mdp, current_user.id))
+        
+        conn.commit()
+        conn.close()
+
+        flash("✅ Mot de passe mis à jour ! Veuillez vous reconnecter.")
+        return redirect(url_for('logout')) # On déconnecte pour valider le nouveau MDP
+
+    return render_template('modifier_mdp.html')
+
+@app.route('/mot-de-passe-oublie', methods=['GET', 'POST'])
+def mdp_oublie():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        conn = get_db_connection()
+        user = conn.execute('SELECT * FROM usager WHERE email = ?', (email,)).fetchone()
+        
+        if user:
+            # Génération d'un code de 6 caractères
+            code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+            conn.execute('UPDATE usager SET code_recup = ? WHERE email = ?', (code, email))
+            conn.commit()
+            conn.close()
+            
+            # Simulation d'envoi de mail via Flash
+            flash(f"🔑 [SIMULATION MAIL] Votre code de récupération est : {code}")
+            return redirect(url_for('reinitialiser_mdp', email=email))
+        
+        conn.close()
+        flash("Si cet email est reconnu, un code vous a été envoyé.")
+        return redirect(url_for('login'))
+        
+    return render_template('mdp_oublie_demande.html')
+
+@app.route('/reinitialiser-mdp/<email>', methods=['GET', 'POST'])
+def reinitialiser_mdp(email):
+    if request.method == 'POST':
+        code_saisi = request.form.get('code')
+        nouveau_mdp = request.form.get('nouveau_mdp')
+        confirmation = request.form.get('confirmation_mdp')
+        
+        if nouveau_mdp != confirmation:
+            flash("❌ Les mots de passe ne correspondent pas.")
+            return redirect(url_for('reinitialiser_mdp', email=email))
+
+        conn = get_db_connection()
+        user = conn.execute('SELECT * FROM usager WHERE email = ? AND code_recup = ?', 
+                            (email, code_saisi.upper())).fetchone()
+        
+        if user:
+            if valider_securite_mdp(nouveau_mdp):
+                # Mise à jour du MDP et suppression du code temporaire
+                conn.execute('UPDATE usager SET mdp = ?, code_recup = NULL WHERE email = ?', 
+                             (nouveau_mdp, email))
+                conn.commit()
+                conn.close()
+                flash("✅ Mot de passe réinitialisé ! Vous pouvez vous connecter.")
+                return redirect(url_for('login'))
+            else:
+                flash("❌ Le mot de passe ne respecte pas les règles de sécurité.")
+        else:
+            flash("❌ Code de validation incorrect.")
+        conn.close()
+            
+    return render_template('mdp_oublie_reset.html', email=email)
 
 if __name__ == '__main__':
     app.run(debug=True)

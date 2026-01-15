@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mot de passe oublié</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .forgot-container {
+            max-width: 400px;
+            margin: 80px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .btn-send {
+            width: 100%;
+            background: #8e44ad;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .flash-message {
+            padding: 10px;
+            background-color: #f8d7da;
+            color: #721c24;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body class="menu-body">
+    <div class="forgot-container">
+        <h2 style="color: #8e44ad;">Récupération</h2>
+        <p style="color: #666; font-size: 0.9em; margin-bottom: 25px;">
+            Saisissez votre adresse email professionnelle. Nous vous enverrons un code de validation pour réinitialiser votre accès.
+        </p>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="flash-message">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <div class="form-group">
+                <label>Votre adresse Email</label>
+                <input type="email" name="email" placeholder="prenom.nom@ville.fr" required>
+            </div>
+            <button type="submit" class="btn-send">Envoyer le code</button>
+        </form>
+
+        <div style="margin-top: 20px;">
+            <a href="{{ url_for('login') }}" style="color: #8e44ad; text-decoration: none; font-size: 0.9em;">⬅ Retour à la connexion</a>
+        </div>
+    </div>
+</body>
+</html>

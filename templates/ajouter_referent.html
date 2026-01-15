@@ -8,19 +8,51 @@
 <body class="menu-body">
     <header class="admin-header">
         <div class="logo">CRÉATION RÉFÉRENT</div>
+        <a href="{{ url_for('menu_admin') }}" style="color: white; float: right; margin-right: 20px; text-decoration: none;">⬅ Retour Menu</a>
     </header>
 
     <div class="menu-container">
         <h1>Créer le compte Référent</h1>
         <p>Ce compte sera l'administrateur local de la mairie enregistrée.</p>
 
-        <form method="POST" class="form-container" style="max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 8px;">
-            <input type="text" name="prenom" placeholder="Prénom" required style="width: 100%; margin-bottom: 10px; padding: 8px;">
-            <input type="text" name="nom" placeholder="Nom de famille" required style="width: 100%; margin-bottom: 10px; padding: 8px;">
-            <input type="email" name="email" placeholder="Adresse Email" required style="width: 100%; margin-bottom: 10px; padding: 8px;">
-            <input type="password" name="mdp" placeholder="Mot de passe" required style="width: 100%; margin-bottom: 15px; padding: 8px;">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div style="padding: 10px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 5px; margin-bottom: 20px; text-align: center;">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" class="form-container" style="max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 5px;">Prénom</label>
+                <input type="text" name="prenom" placeholder="Ex: Jean" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+            </div>
+
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 5px;">Nom de famille</label>
+                <input type="text" name="nom" placeholder="Ex: Dupont" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+            </div>
+
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 5px;">Adresse Email professionnel</label>
+                <input type="email" name="email" placeholder="jean.dupont@ville.fr" required 
+                       pattern="[a-zA-Z0-9.-]+\.(fr|gmail\.com)$"
+                       title="L'email doit finir par .fr ou gmail.com et correspondre au nom/prénom."
+                       style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                <small style="color: #666; font-size: 0.8em;">Format attendu : prenom.nom@domaine.fr ou gmail.com</small>
+            </div>
+
+            <div style="text-align: left; margin-bottom: 20px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 5px;">Mot de passe</label>
+                <input type="password" name="mdp" placeholder="********" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+            </div>
             
-            <button type="submit" class="btn-primary" style="width: 100%;">Créer le compte</button>
+            <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; font-weight: bold; cursor: pointer;">
+                Créer le compte Référent
+            </button>
         </form>
     </div>
 </body>
