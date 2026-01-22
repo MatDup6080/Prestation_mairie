@@ -169,29 +169,43 @@ def assigner_ticket(ticket_id):
     flash(f"Assigné en contrat {contrat} (Délai : {duree_intervention})")
     return redirect(url_for('prestations_admin'))
 
+
 @app.route('/admin/update_statut/<int:ticket_id>', methods=['POST'])
 @login_required
 def update_statut(ticket_id):
     nouveau_statut = request.form.get('statut')
     conn = get_db_connection()
     
+    # Si on veut terminer, on ne met pas "Terminé" tout de suite
+    # On met un statut intermédiaire
     if nouveau_statut == 'Terminé':
-        # CURRENT_TIMESTAMP enregistre la date et l'heure exactes
         conn.execute('''
-            UPDATE ticket 
-            SET statut = ?, date_fin = CURRENT_TIMESTAMP 
-            WHERE id = ?
-        ''', (nouveau_statut, ticket_id))
+            UPDATE ticket SET statut = "En attente de validation" WHERE id = ?
+        ''', (ticket_id,))
+        flash("Ticket mis en attente de confirmation par le client.")
     else:
-        # Si on repasse en 'En cours', on vide la date de fin
         conn.execute('UPDATE ticket SET statut = ?, date_fin = NULL WHERE id = ?', 
                     (nouveau_statut, ticket_id))
+        flash(f"Statut mis à jour : {nouveau_statut}")
     
     conn.commit()
     conn.close()
-    
-    flash(f"Statut mis à jour : {nouveau_statut}")
     return redirect(url_for('prestations_admin'))
+    
+@app.route('/mairie/confirmer-cloture/<int:ticket_id>', methods=['POST'])
+@login_required
+def confirmer_cloture(ticket_id):
+    conn = get_db_connection()
+    # On vérifie que le ticket appartient bien à l'utilisateur ou sa mairie
+    conn.execute('''
+        UPDATE ticket 
+        SET statut = 'Terminé', date_fin = CURRENT_TIMESTAMP 
+        WHERE id = ?
+    ''', (ticket_id,))
+    conn.commit()
+    conn.close()
+    flash("✅ Merci ! Le ticket est maintenant clôturé officiellement.")
+    return redirect(request.referrer)
     
 @app.route('/admin/inventaire')
 @login_required
@@ -285,6 +299,46 @@ def ajouter_referent(mairie_id):
         
     return render_template('ajouter_referent.html', mairie_id=mairie_id)
 
+@app.route('/admin/equipe', methods=['GET', 'POST'])
+@login_required
+def gestion_equipe():
+    # Sécurité : seul l'admin prestataire peut accéder
+    if current_user.role != 'admin_prestataire':
+        flash("Accès refusé.")
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+
+    if request.method == 'POST':
+        nom = request.form.get('nom')
+        prenom = request.form.get('prenom')
+        email = request.form.get('email')
+        mdp = request.form.get('mdp')
+        role = request.form.get('role') # 'technicien' ou 'admin_prestataire'
+
+        # Validation de l'email (on réutilise votre logique)
+        if not valider_format_strict_email(email, prenom, nom):
+            flash("L'email doit respecter le format prenom.nom@... (.fr ou gmail.com)")
+        else:
+            try:
+                conn.execute('''
+                    INSERT INTO usager (nom, prenom, email, mdp, role, premier_login) 
+                    VALUES (?, ?, ?, ?, ?, 1)
+                ''', (nom, prenom, email, mdp, role))
+                conn.commit()
+                flash(f"Membre {prenom} {nom} ajouté avec succès !")
+            except sqlite3.IntegrityError:
+                flash("Erreur : Cet email est déjà utilisé.")
+
+    # Récupérer tous les membres de l'équipe prestataire
+    equipe = conn.execute('''
+        SELECT id, nom, prenom, email, role 
+        FROM usager 
+        WHERE role IN ('technicien', 'admin_prestataire')
+    ''').fetchall()
+    
+    conn.close()
+    return render_template('gestion_equipe.html', equipe=equipe)
 # --- ROUTES RÉFÉRENT MAIRIE ---
 
 @app.route('/referent/dashboard')
@@ -434,69 +488,86 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 import io
-
 @app.route('/admin/rapport-mensuel')
 @login_required
 def generer_rapport_pdf():
     conn = get_db_connection()
-    # On récupère tous les tickets du mois actuel
+    
+    # Requête complète pour avoir toutes les infos avant suppression
     tickets = conn.execute('''
-        SELECT t.*, u.nom as demandeur, tech.prenom as tech_prenom 
+        SELECT t.*, 
+               u.nom as demandeur, 
+               m.nom as nom_mairie, 
+               m.ville as ville_mairie,
+               tech.prenom as tech_prenom, 
+               tech.nom as tech_nom
         FROM ticket t
         JOIN usager u ON t.createur_id = u.id
+        JOIN mairie m ON u.mairie_id = m.id
         LEFT JOIN usager tech ON t.technicien_id = tech.id
         WHERE strftime('%m', t.date_creation) = strftime('%m', 'now')
     ''').fetchall()
+
+    # --- NETTOYAGE APRÈS RÉCUPÉRATION ---
+    # On supprime les tickets terminés de plus de 30 jours
+    conn.execute("DELETE FROM ticket WHERE statut = 'Terminé' AND date_fin < datetime('now', '-30 days')")
+    conn.commit()
     conn.close()
 
-    # Création du buffer pour le PDF
+    # --- GÉNÉRATION DU PDF ---
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=18)
     elements = []
     styles = getSampleStyleSheet()
 
-    # Titre du document
-    elements.append(Paragraph("Rapport Mensuel des Interventions", styles['Title']))
+    # Titre avec le mois actuel
+    import datetime
+    mois_actuel = datetime.datetime.now().strftime("%B %Y")
+    elements.append(Paragraph(f"Rapport d'Interventions - {mois_actuel}", styles['Title']))
     elements.append(Spacer(1, 12))
 
-    # Préparation des données du tableau
-    data = [['Date', 'Sujet', 'Tech', 'Contrat', 'Statut', 'SLA']]
+    # Entête du tableau (ajout de la colonne Mairie)
+    data = [['Date', 'Mairie / Ville', 'Sujet', 'Intervenant', 'Contrat', 'SLA']]
     
     for t in tickets:
-        # Calcul rapide du SLA (Respect du délai)
-        sla_status = "N/A"
+        # Calcul du SLA
+        sla_info = "OK"
         if t['statut'] == 'Terminé' and t['date_fin']:
-            debut = datetime.strptime(t['date_creation'], '%Y-%m-%d %H:%M:%S')
-            fin = datetime.strptime(t['date_fin'], '%Y-%m-%d %H:%M:%S')
-            ecoule = (fin - debut).total_seconds() / 3600
+            # Utilisation de notre logique de calcul de délai
+            debut = datetime.datetime.strptime(t['date_creation'], '%Y-%m-%d %H:%M:%S')
+            fin = datetime.datetime.strptime(t['date_fin'], '%Y-%m-%d %H:%M:%S')
+            diff = (fin - debut).total_seconds() / 3600
             limite = 4 if t['contrat'] == 'Gold' else 24 if t['contrat'] == 'Silver' else 72
-            sla_status = "OK" if ecoule <= limite else f"RETARD (+{int(ecoule-limite)}h)"
+            if diff > limite:
+                sla_info = f"RETARD (+{int(diff-limite)}h)"
 
         data.append([
-            t['date_creation'][:10], 
-            t['titre'][:20], 
-            t['tech_prenom'] if t['tech_prenom'] else "-", 
+            t['date_creation'][:10],
+            f"{t['nom_mairie']}\n({t['ville_mairie']})",
+            t['titre'][:20],
+            f"{t['tech_prenom']} {t['tech_nom'][0] if t['tech_nom'] else ''}.",
             t['contrat'] if t['contrat'] else "-",
-            t['statut'],
-            sla_status
+            sla_info
         ])
 
-    # Style du tableau
-    table = Table(data, colWidths=[60, 130, 80, 70, 70, 80])
+    # Configuration du tableau (ajustement des largeurs)
+    table = Table(data, colWidths=[60, 100, 110, 90, 60, 80])
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey])
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.whitesmoke])
     ]))
     
     elements.append(table)
     doc.build(elements)
     
     buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name="rapport_mensuel.pdf", mimetype='application/pdf')
+    return send_file(buffer, as_attachment=True, download_name=f"Rapport_{mois_actuel}.pdf", mimetype='application/pdf')
 
 
 def valider_securite_mdp(mdp):
@@ -597,6 +668,11 @@ def reinitialiser_mdp(email):
         conn.close()
             
     return render_template('mdp_oublie_reset.html', email=email)
+    
+    
+    
 
+    
+   
 if __name__ == '__main__':
     app.run(debug=True)

@@ -3,59 +3,7 @@
 <head>
     <title>Gestion des Interventions</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <style>
-        /* Styles pour la description */
-        .desc-tronquee {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            color: #666;
-            font-size: 0.9em;
-            margin-top: 5px;
-        }
-
-        details summary {
-            cursor: pointer;
-            color: #3498db;
-            font-size: 0.85em;
-            font-weight: bold;
-            outline: none;
-            margin-top: 5px;
-        }
-
-        .full-desc {
-            padding: 10px;
-            background: #fdfdfd;
-            border-left: 3px solid #3498db;
-            margin-top: 5px;
-            font-size: 0.9em;
-            white-space: pre-wrap;
-            color: #333;
-        }
-
-        .badge-assigne {
-            display: inline-block;
-            color: #27ae60;
-            font-weight: bold;
-            background: #eafaf1;
-            padding: 5px 12px;
-            border-radius: 15px;
-            font-size: 0.85em;
-            border: 1px solid #27ae60;
-        }
-          .badge-contrat {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.85em;
-            font-weight: bold;
-        }
-        .gold { background-color: #f1c40f; color: #000; }
-        .silver { background-color: #bdc3c7; color: #000; }
-        .bronze { background-color: #cd7f32; color: #fff; }
-    </style>
+    
 </head>
 <body>
     <header class="admin-header">

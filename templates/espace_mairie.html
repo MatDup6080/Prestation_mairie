@@ -5,6 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon Espace Mairie - Support Info</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Style spécifique pour l'alerte de validation */
+        .validation-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .btn-confirm {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.8em;
+            transition: background 0.3s;
+        }
+        .btn-confirm:hover {
+            background-color: #219150;
+        }
+    </style>
 </head>
 <body>
 
@@ -26,7 +53,7 @@
 
         {% with messages = get_flashed_messages() %}
           {% if messages %}
-            <div class="badge connexion" style="margin-bottom: 20px; display: block; text-align: center;">
+            <div class="badge connexion" style="margin-bottom: 20px; display: block; text-align: center; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb;">
                 {{ messages[0] }}
             </div>
           {% endif %}
@@ -39,7 +66,7 @@
                     <th>Type</th>
                     <th>Sujet</th>
                     <th>Description</th>
-                    <th>Statut</th>
+                    <th>Statut / Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -56,9 +83,20 @@
                         {{ ticket['description'] }}
                     </td>
                     <td>
-                        <span class="status-{{ ticket['statut'].lower().replace(' ', '') }}">
+                        <span class="status-{{ ticket['statut'].lower().replace(' ', '') }}" style="font-weight: bold;">
                             ● {{ ticket['statut'] }}
                         </span>
+
+                        {% if ticket['statut'] == 'En attente de validation' %}
+                        <div class="validation-box">
+                            <span style="font-size: 0.8em; color: #856404;">L'intervention est finie ?</span>
+                            <form action="{{ url_for('confirmer_cloture', ticket_id=ticket['id']) }}" method="POST">
+                                <button type="submit" class="btn-confirm">
+                                    Confirmer la clôture
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
                     </td>
                 </tr>
                 {% else %}
